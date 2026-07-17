@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Porsche Sales Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        porsche: {
+                            black: '#000000',
+                            red: '#d5001c',
+                            silver: '#d1d5db',
+                            dark: '#18181b'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-100 font-sans text-gray-900" x-data="porscheApp">
+
+    <!-- Header -->
+    <header class="bg-porsche-black text-white p-6 shadow-lg border-b-4 border-porsche-red">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold tracking-widest uppercase">Porsche <span class="text-porsche-red font-light">Sales Intelligence</span></h1>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-4 md:p-8">
+        
+        <!-- KPI Dashboard -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-lg shadow border-l-4 border-porsche-red">
+                <p class="text-sm text-gray-500 uppercase">Total Vendas</p>
+                <p class="text-3xl font-bold" x-text="salesData.length"></p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow border-l-4 border-porsche-black">
+                <p class="text-sm text-gray-500 uppercase">Receita Bruta</p>
+                <p class="text-3xl font-bold" x-text="formatCurrency(totalRevenue)"></p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow border-l-4 border-gray-400">
+                <p class="text-sm text-gray-500 uppercase">Modelos em Estoque</p>
+                <p class="text-3xl font-bold" x-text="uniqueModels"></p>
+            </div>
+        </div>
+
+        <!-- Filters & Search -->
+        <div class="bg-white p-6 rounded-lg shadow mb-8 flex flex-col md:flex-row gap-4 items-center">
+            <input type="text" x-model="search" placeholder="Buscar cliente ou modelo..." class="w-full md:w-1/3 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-porsche-red outline-none">
+            
+            <select x-model="filterStatus" class="w-full md:w-auto p-2 border border-gray-300 rounded">
+                <option value="">Todos os Status</option>
+                <option value="Delivered">Delivered</option>
+                <option value="In Transit">In Transit</option>
+                <option value="Pending">Pending</option>
+                <option value="Processing">Processing</option>
+            </select>
+
+            <select x-model="filterState" class="w-full md:w-auto p-2 border border-gray-300 rounded">
+                <option value="">Todos os Estados</option>
+                <template x-for="state in states" :key="state">
+                    <option :value="state" x-text="state"></option>
+                </template>
+            </select>
+        </div>
+
+        <!-- Data Table -->
+        <div class="bg-white shadow rounded-lg overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead class="bg-porsche-dark text-white">
+                        <tr>
+                            <th class="p-4">Cliente</th>
+                            <th class="p-4">Modelo</th>
+                            <th class="p-4">Ano</th>
+                            <th class="p-4">Preço</th>
+                            <th class="p-4">Status</th>
+                            <th class="p-4">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <template x-for="sale in filteredSales" :key="sale.id">
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="p-4 font-medium" x-text="sale.customer"></td>
+                                <td class="p-4" x-text="sale.model"></td>
+                                <td class="p-4" x-text="sale.year"></td>
+                                <td class="p-4" x-text="formatCurrency(sale.price)"></td>
+                                <td class="p-4">
+                                    <span class="px-2 py-1 rounded text-xs font-bold uppercase" 
+                                          :class="{'bg-green-100 text-green-800': sale.status === 'Delivered', 'bg-yellow-100 text-yellow-800': sale.status === 'Pending', 'bg-blue-100 text-blue-800': sale.status === 'In Transit', 'bg-gray-100 text-gray-800': sale.status === 'Processing'}">
+                                        <span x-text="sale.status"></span>
+                                    </span>
+                                </td>
+                                <td class="p-4">
+                                    <button @click="openModal(sale)" class="text-porsche-red hover:underline font-semibold">Detalhes</button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Detail Modal -->
+    <div x-show="showModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4" x-cloak>
+        <div class="bg-white rounded-lg p-8 max-w-md w-full" @click.away="showModal = false">
+            <h2 class="text-2xl font-bold mb-4 text-porsche-black">Detalhes da Venda</h2>
+            <div x-if="selectedSale">
+                <p><strong>Cliente:</strong> <span x-text="selectedSale.customer"></span></p>
+                <p><strong>Modelo:</strong> <span x-text="selectedSale.model"></span></p>
+                <p><strong>Preço:</strong> <span x-text="formatCurrency(selectedSale.price)"></span></p>
+                <p><strong>Cidade/Estado:</strong> <span x-text="selectedSale.city + ', ' + selectedSale.state"></span></p>
+                <p><strong>Pagamento:</strong> <span x-text="selectedSale.payment"></span></p>
+                <p><strong>Quilometragem:</strong> <span x-text="selectedSale.mileage"></span></p>
+            </div>
+            <button @click="showModal = false" class="mt-6 w-full bg-porsche-red text-white py-2 rounded font-bold hover:bg-red-700">Fechar</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('porscheApp', () => ({
+                search: '',
+                filterStatus: '',
+                filterState: '',
+                showModal: false,
+                selectedSale: null,
+                
+                // Dados extraídos da sua planilha
+                salesData: [
+                    {"id": 1, "customer": "Michael Adams", "model": "718 Cayman", "year": 2022, "price": 79500, "mileage": 9800, "payment": "Credit card", "city": "boston", "state": "MA", "status": "Delivered"},
+                    {"id": 2, "customer": "SOPHIA MILLER", "model": "911 Turbo S", "year": 2024, "price": 235000, "mileage": 1200, "payment": "Credit card", "city": "Seattle", "state": "WA", "status": "In Transit"},
+                    {"id": 3, "customer": "Daniel/Jones", "model": "Cayenne Coupe", "year": 2023, "price": 112750, "mileage": 6400, "payment": "Financing plan", "city": "austin", "state": "TX", "status": "Pending"},
+                    {"id": 4, "customer": "Olivia Brown", "model": "Macan S", "year": 2021, "price": 68900, "mileage": 28, "payment": "CASH", "city": "denver", "state": "CO", "status": "Delivered"},
+                    {"id": 5, "customer": "Ethan Wilson", "model": "Taycan 4S", "year": 2024, "price": 121000, "mileage": 0, "payment": "Bank Transfer", "city": "los angeles", "state": "CA", "status": "Processing"},
+                    {"id": 6, "customer": "Ava Martinez", "model": "Panamera 4", "year": 2023, "price": 104500, "mileage": 14500, "payment": "Credit Card", "city": "Miami", "state": "FL", "status": "Delivered"},
+                    {"id": 7, "customer": "Noah Davis", "model": "911 Carrera S", "year": 2020, "price": 96300, "mileage": 41000, "payment": "Lease", "city": "new york", "state": "NY", "status": "Delivered"},
+                    {"id": 8, "customer": "Isabella Garcia", "model": "Cayenne E/Hybrid", "year": 2022, "price": 89750, "mileage": 11744, "payment": "wire transfer", "city": "San Diego", "state": "CA", "status": "In Transit"},
+                    {"id": 9, "customer": "Liam Rodriguez", "model": "718 Boxster", "year": 2021, "price": 73500, "mileage": 22300, "payment": "debit card", "city": "chicago", "state": "IL", "status": "Pending"},
+                    {"id": 10, "customer": "Mia Hernandez", "model": "Macan GTS", "year": 2024, "price": 95000, "mileage": 3500, "payment": "Financing", "city": "phoenix", "state": "AZ", "status": "Delivered"},
+                    {"id": 11, "customer": "James Lopez", "model": "Taycan Turbo", "year": 2023, "price": 153200, "mileage": 11, "payment": "ACH payment", "city": "dallas", "state": "TX", "status": "Delivered"},
+                    {"id": 12, "customer": "Charlotte Young", "model": "911 GT3", "year": 2024, "price": 241000, "mileage": 750, "payment": "WireTransfer", "city": "Las Vegas", "state": "NV", "status": "Processing"},
+                    {"id": 13, "customer": "Benjamin Allen", "model": "Panamera Turbo S", "year": 2024, "price": 132000, "mileage": 19250, "payment": "cash", "city": "san jose", "state": "CA", "status": "Delivered"},
+                    {"id": 14, "customer": "Amelia King", "model": "Cayenne Turbo GT", "year": 2024, "price": 188000, "mileage": 2100, "payment": "crypto payment", "city": "Houston", "state": "TX", "status": "In Transit"},
+                    {"id": 15, "customer": "Lucas Wright", "model": "911 Carrera Cabriolet", "year": 2024, "price": 127800, "mileage": 12000, "payment": "Credit Card", "city": "atlanta", "state": "GA", "status": "Delivered"}
+                ],
+
+                get filteredSales() {
+                    return this.salesData.filter(sale => {
+                        return (sale.customer.toLowerCase().includes(this.search.toLowerCase()) || 
+                                sale.model.toLowerCase().includes(this.search.toLowerCase())) &&
+                               (this.filterStatus === '' || sale.status === this.filterStatus) &&
+                               (this.filterState === '' || sale.state === this.filterState);
+                    });
+                },
+
+                get totalRevenue() {
+                    return this.filteredSales.reduce((acc, sale) => acc + sale.price, 0);
+                },
+
+                get uniqueModels() {
+                    return [...new Set(this.salesData.map(s => s.model))].length;
+                },
+
+                get states() {
+                    return [...new Set(this.salesData.map(s => s.state))].sort();
+                },
+
+                formatCurrency(val) {
+                    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+                },
+
+                openModal(sale) {
+                    this.selectedSale = sale;
+                    this.showModal = true;
+                }
+            }));
+        });
+    </script>
+    <style>[x-cloak] { display: none !important; }</style>
+</body>
+</html>
